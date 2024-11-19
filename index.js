@@ -1,4 +1,5 @@
 const Redux = require('redux')
+const prompts = require('prompts')
 
 // Função utilitária para obter a data atual formatada
 const obterDataAtual = () => {
@@ -43,6 +44,7 @@ const cancelarContrato = (nome) => {
   };
 };
 
+//função criadora de ação: solicitação de cashback
 const solicitarCashback = (nome, valor) => {
   return {
     type: "CASHBACK",
@@ -53,9 +55,10 @@ const solicitarCashback = (nome, valor) => {
 //reducer para lidar com as solicitações de cashback
 const historicoDePedidosDeCashback = (historicoDePedidosDeCashbackAtual = [], acao) => {
   if (acao.type === "CASHBACK") {
+    const status = store.getState().cashbackPorUsuario[acao.payload.nome] >= acao.payload.valor ? "ATENDIDO" : "NÃO_ATENDIDO";
     return [
       ...historicoDePedidosDeCashbackAtual,
-      acao.payload
+      {...acao.payload, status, data: obterDataAtual() }
     ]
   }
   return historicoDePedidosDeCashbackAtual
@@ -63,7 +66,7 @@ const historicoDePedidosDeCashback = (historicoDePedidosDeCashbackAtual = [], ac
 
 //reducer para gerenciar o caixa, incluindo a multa por cancelamento antecipado
 const caixa = (dinheiroEmCaixa = 0, acao) => {
-  if (acao.type === "CASHBACK") {
+  if (acao.type === "CASHBACK" && acao.payload.status === "ATENDIDO") {
     dinheiroEmCaixa -= acao.payload.valor
   }
   else if (acao.type === "CRIAR_CONTRATO") {
@@ -98,6 +101,12 @@ const cashbackPorUsuario = (estadoAtual = {}, acao) => {
       [nome]: (estadoAtual[nome] || 0) + cashbackGerado
     };
   }
+  else if (acao.type === "CASHBACK" && store.getState().cashbackPorUsuario[acao.payload.nome] >= acao.payload.valor) {
+    return {
+      ...estadoAtual,
+      [acao.payload.nome]: estadoAtual[acao.payload.nome] - acao.payload.valor
+    };
+  }
   return estadoAtual;
 }
 
@@ -120,3 +129,58 @@ const todosOsReducers = combineReducers({
 });
 
 const store = createStore(todosOsReducers);
+
+// Menu interativo
+(async () => {
+  let continuar = true;
+
+  while (continuar) {
+    const resposta = await prompts({
+      type: 'select',
+      name: 'opcao',
+      message: 'Escolha uma opção:',
+      choices: [
+        { title: '1. Realizar novo contrato', value: 1 },
+        { title: '2. Cancelar contrato existente', value: 2 },
+        { title: '3. Consultar saldo de cashbak', value: 3 },
+        { title: '4. Fazer pedido de cashback', value: 4 },
+        { title: '5. Exibir saldo em caixa', value: 5 },
+        { title: '0. Sair', value: 0 }
+      ]
+    });
+
+    switch (resposta.opcao) {
+      case 1:
+        const contrato = await prompts([
+          { type: 'text', name: 'nome', message: 'Nome do contrato:' },
+          { type: 'number', name: 'taxa', message: 'Taxa do contrato:' }
+        ]);
+        store.dispatch(criarContrato(contrato.nome, contrato.taxa));
+        break;
+      case 2:
+        const cancelamento = await prompts({ type: 'text', name: 'nome', message: 'Nome do cliente para cancelamento:' });
+        store.dispatch(cancelarContrato(cancelamento.nome));
+        break;
+      case 3:
+        const consulta = await prompts({ type: 'text', name: 'nome', message: 'Nome do cliente:' });
+        console.log(`Saldo de cashback de ${consulta.nome}: R$${store.getState().cashbackPorUsuario[consulta.nome] || 0}`);
+        break;
+      case 4:
+        const pedido = await prompts([
+          { type: 'text', name: 'nome', message: 'Nome do cliente:' },
+          { type: 'number', name: 'valor', message: 'Valor do cashback solicitado:' }
+        ]);
+        store.dispatch(solicitarCashback(pedido.nome, pedido.valor));
+        break;
+      case 5:
+        console.log(`Saldo em caixa: R$${store.getState().caixa}`);
+        break;
+      case 0:
+        continuar = false;
+        break;
+      default:
+        console.log('Opção inválida');
+    }
+    console.log(store.getState());
+  }
+})();
