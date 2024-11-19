@@ -6,6 +6,18 @@ const obterDataAtual = () => {
   return `${data.getDate()}/${data.getMonth() + 1}/${data.getFullYear()}`;
 };
 
+//função criadora de ação: compra de um produto
+const comprarProduto = (nome, produto, valor) => {
+  return {
+    type: 'COMPRAR_PRODUTO',
+    payload: {
+      nome,
+      produto,
+      valor
+    }
+  };
+};
+
 //função criadora de ação: ela cria novos contratos, agora incluindo a data
 const criarContrato = (nome, taxa) => {
   //ela devolve uma ação, ou seja, um objeto JS
@@ -70,9 +82,26 @@ const caixa = (dinheiroEmCaixa = 0, acao) => {
       }
     }
   }
+  else if (acao.type === "COMPRAR_PRODUTO") {
+    dinheiroEmCaixa += acao.payload.valor;
+  }
   return dinheiroEmCaixa;
 };
 
+// reducer para gerenciar cashback por usuário
+const cashbackPorUsuario = (estadoAtual = {}, acao) => {
+  if (acao.type === "COMPRAR_PRODUTO") {
+    const { nome, valor } = acao.payload;
+    const cashbackGerado = valor * 0.1;
+    return {
+      ...estadoAtual,
+      [nome]: (estadoAtual[nome] || 0) + cashbackGerado
+    };
+  }
+  return estadoAtual;
+}
+
+//reducer para gerenciar os contratos
 const contratos = (listaDeContratosAtual = [], acao) => {
   if (acao.type === "CRIAR_CONTRATO")
     return [...listaDeContratosAtual, acao.payload]
@@ -84,7 +113,10 @@ const contratos = (listaDeContratosAtual = [], acao) => {
 const { createStore, combineReducers } = Redux;
 
 const todosOsReducers = combineReducers({
-  historicoDePedidosDeCashback, caixa, contratos
-})
+  historicoDePedidosDeCashback,
+  caixa,
+  contratos,
+  cashbackPorUsuario
+});
 
-const store = createStore(todosOsReducers)
+const store = createStore(todosOsReducers);
