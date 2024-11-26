@@ -46,11 +46,14 @@ const cancelarContrato = (nome, dataCriacao, dataCancelamento) => {
 
 //função criadora de ação: solicitação de cashback
 const solicitarCashback = (nome, valor) => {
+  const cashbackDisponivel = store.getState().cashbackPorUsuario[nome] || 0;
+  const status = cashbackDisponivel >= valor ? "ATENDIDO" : "NÃO_ATENDIDO";
   return {
     type: "CASHBACK",
     payload: {
       nome, 
-      valor
+      valor,
+      status
     }
   };
 };
@@ -58,24 +61,18 @@ const solicitarCashback = (nome, valor) => {
 //reducer para lidar com as solicitações de cashback
 const historicoDePedidosDeCashback = (historicoAtual = [], acao) => {
   if (acao.type === "CASHBACK") {
-    const cashbackDisponivel = store.getState().cashbackPorUsuario[acao.payload.nome] || 0;
-    const status = cashbackDisponivel >= acao.payload.valor ? "ATENDIDO" : "NÃO_ATENDIDO";
     return [
       ...historicoAtual,
-      {...acao.payload, status, data: obterDataAtual() }
-    ]
+      {...acao.payload, data: obterDataAtual() }
+    ];
   }
   return historicoAtual;
 };
 
 //reducer para gerenciar o caixa, incluindo a multa por cancelamento antecipado
 const caixa = (dinheiroEmCaixa = 0, acao) => {
-  if (acao.type === "CASHBACK" ) {
-    const historico = acao.payload.historico || [];
-    const ultimoPedido = historico[historico.length - 1];
-    if (ultimoPedido && ultimoPedido.status === "ATENDIDO") {
-      return dinheiroEmCaixa - acao.payload.valor;
-    }
+  if (acao.type === "CASHBACK" && acao.payload.status === "ATENDIDO") {
+    return dinheiroEmCaixa - acao.payload.valor;
   } else if (acao.type === "CRIAR_CONTRATO") {
     return dinheiroEmCaixa + acao.payload.taxa;
   } else if (acao.type === "CANCELAR_CONTRATO") {
