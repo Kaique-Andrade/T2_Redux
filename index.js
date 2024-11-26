@@ -4,7 +4,7 @@ const prompts = require('prompts')
 // Função utilitária para obter a data atual formatada
 const obterDataAtual = () => {
   const data = new Date()
-  return `${data.getDate()}/${data.getMonth() + 1}/${data.getFullYear()}`;
+  return `${data.getDate().toString().padStart(2, '0')}/${(data.getMonth() + 1).toString().padStart(2, '0')}/${data.getFullYear()}`;
 };
 
 //função criadora de ação: compra de um produto
@@ -33,12 +33,13 @@ const criarContrato = (nome, taxa) => {
 };
 
 //função criadora de ação: cancelar contrato, incluindo a data
-const cancelarContrato = (nome) => {
+const cancelarContrato = (nome, dataCriacao, dataCancelamento) => {
   return {
     type: 'CANCELAR_CONTRATO',
     payload: {
       nome,
-      dataCancelamento: obterDataAtual()
+      dataCriacao,
+      dataCancelamento
     }
   };
 };
@@ -70,7 +71,7 @@ const historicoDePedidosDeCashback = (historicoAtual = [], acao) => {
 //reducer para gerenciar o caixa, incluindo a multa por cancelamento antecipado
 const caixa = (dinheiroEmCaixa = 0, acao) => {
   if (acao.type === "CASHBACK" ) {
-    const historico = store.getState().historicoDePedidosDeCashback;
+    const historico = acao.payload.historico || [];
     const ultimoPedido = historico[historico.length - 1];
     if (ultimoPedido && ultimoPedido.status === "ATENDIDO") {
       return dinheiroEmCaixa - acao.payload.valor;
@@ -78,14 +79,15 @@ const caixa = (dinheiroEmCaixa = 0, acao) => {
   } else if (acao.type === "CRIAR_CONTRATO") {
     return dinheiroEmCaixa + acao.payload.taxa;
   } else if (acao.type === "CANCELAR_CONTRATO") {
-    const contratoCancelado = store.getState().contratos.find(c => c.nome === acao.payload.nome);
+    const { dataCriacao, dataCancelamento } = acao.payload;
 
-    if (contratoCancelado) {
+    if (dataCriacao && dataCancelamento) {
       //verifica se o contrato tem menos de 3 meses
-      const dataCriacao = new Date(contratoCancelado.dataCriacao.split('/').reverse().join('-'));
-      const dataCancelamento = new Date(acao.payload.dataCancelamento.split('/').reverse().join('-'));
-      const diferencaEmMeses = (dataCancelamento.getFullYear() - dataCriacao.getFullYear()) * 12 + (dataCancelamento.getMonth() - dataCriacao.getMonth());
+      const dataInicio = new Date(dataCriacao.split('/').reverse().join('-'));
+      const dataFim = new Date(dataCancelamento.split('/').reverse().join('-'));
+      const diferencaEmMeses = (dataFim.getFullYear() - dataInicio.getFullYear()) * 12 + (dataFim.getMonth() - dataInicio.getMonth());
       if (diferencaEmMeses < 3) {
+        console.log('Multa aplicada por cancelamento antecipado');
         return dinheiroEmCaixa - 100;
       }
     }
@@ -165,7 +167,17 @@ const store = createStore(todosOsReducers);
         break;
       case 2:
         const cancelamento = await prompts({ type: 'text', name: 'nome', message: 'Nome do cliente para cancelamento:' });
-        store.dispatch(cancelarContrato(cancelamento.nome));
+        const contratoCancelado = store.getState().contratos.find(c => c.nome === cancelamento.nome);
+
+        if (contratoCancelado) {
+          store.dispatch(cancelarContrato(
+            cancelamento.nome,
+            contratoCancelado.dataCriacao,
+            obterDataAtual()
+          ));
+        } else {
+          console.log('Contrato não encontrado');
+        }        
         break;
       case 3:
         const consulta = await prompts({ type: 'text', name: 'nome', message: 'Nome do cliente:' });
