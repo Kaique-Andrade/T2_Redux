@@ -135,10 +135,6 @@ const todosOsReducers = combineReducers({
 
 const store = createStore(todosOsReducers);
 
-// Exemplo de uso
-store.dispatch(comprarProduto('João', 'Celular', 1500));
-store.dispatch(comprarProduto('João', 'Tablet', 800));
-
 // Menu interativo
 (async () => {
   let continuar = true;
@@ -151,9 +147,10 @@ store.dispatch(comprarProduto('João', 'Tablet', 800));
       choices: [
         { title: '1. Realizar novo contrato', value: 1 },
         { title: '2. Cancelar contrato existente', value: 2 },
-        { title: '3. Consultar saldo de cashbak', value: 3 },
-        { title: '4. Fazer pedido de cashback', value: 4 },
-        { title: '5. Exibir saldo em caixa', value: 5 },
+        { title: '3. Comprar um produto', value: 3 },
+        { title: '4. Consultar saldo de cashbak', value: 4 },
+        { title: '5. Fazer pedido de cashback', value: 5 },
+        { title: '6. Exibir saldo em caixa', value: 6 },
         { title: '0. Sair', value: 0 }
       ]
     });
@@ -181,17 +178,26 @@ store.dispatch(comprarProduto('João', 'Tablet', 800));
         }        
         break;
       case 3:
+        const compra = await prompts([
+          { type: 'text', name: 'nome', message: 'Nome do cliente:' },
+          { type: 'text', name: 'produto', message: 'Nome do produto:' },
+          { type: 'number', name: 'valor', message: 'Valor do produto:' }
+        ]);
+        store.dispatch(comprarProduto(compra.nome, compra.produto, compra.valor));
+        console.log(`Compra registrada: ${compra.nome} comprou ${compra.produto} por R$${compra.valor}`);
+        break;
+      case 4:
         const consulta = await prompts({ type: 'text', name: 'nome', message: 'Nome do cliente:' });
         console.log(`Saldo de cashback de ${consulta.nome}: R$${store.getState().cashbackPorUsuario[consulta.nome] || 0}`);
         break;
-      case 4:
+      case 5:
         const pedido = await prompts([
           { type: 'text', name: 'nome', message: 'Nome do cliente:' },
           { type: 'number', name: 'valor', message: 'Valor do cashback solicitado:' }
         ]);
         store.dispatch(solicitarCashback(pedido.nome, pedido.valor));
         break;
-      case 5:
+      case 6:
         console.log(`Saldo em caixa: R$${store.getState().caixa}`);
         break;
       case 0:
