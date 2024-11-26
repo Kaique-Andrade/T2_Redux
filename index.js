@@ -138,6 +138,10 @@ const todosOsReducers = combineReducers({
 
 const store = createStore(todosOsReducers);
 
+// Exemplo de uso
+store.dispatch(comprarProduto('João', 'Celular', 1500));
+store.dispatch(comprarProduto('João', 'Tablet', 800));
+
 // Menu interativo
 (async () => {
   let continuar = true;
